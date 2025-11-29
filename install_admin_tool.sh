@@ -44,7 +44,7 @@ cat > "$TARGET_PATH" << 'EOF_SCRIPT'
 
 # ==========================================================
 # 🚀 SYSTEM ADMIN & EMERGENCY RESCUE TOOL
-# Version: 18.0 (Unified Menu Formatting)
+# Version: 0.1
 # Description: Full-featured dashboard for Admin, Rescue, and Generic Dev/AI setup.
 # ==========================================================
 
