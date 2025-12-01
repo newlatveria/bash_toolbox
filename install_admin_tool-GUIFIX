@@ -21,27 +21,30 @@ fi
 
 echo -e "${CYAN}--- System Admin & Rescue Tool Installer ---${STD}"
 
+# Check if the script already exists
 if [ -f "$TARGET_PATH" ]; then
   echo -e "${YELLOW}Warning: The script already exists at $TARGET_PATH.${STD}"
   read -r -p "Do you want to [O]verwrite it or [A]bort? (O/A): " choice
-  choice=${choice^^}
+  choice=${choice^^} # Convert to uppercase
   
   if [[ "$choice" == "A" ]]; then
-    echo -e "${GREEN}Installation aborted.${STD}"
+    echo -e "${GREEN}Installation aborted. You can run the existing tool by typing: ${CYAN}$SCRIPT_NAME${STD}"
     exit 0
   fi
+  
   echo -e "${YELLOW}Overwriting existing script...${STD}"
 fi
 
-echo -e "${GREEN}Installing SAERT (v22.0 - Windowed Tools & Compact Menu) to $TARGET_PATH...${STD}"
+echo -e "${GREEN}Installing SAERT (v19.0 - Graphics Repair Edition) to $TARGET_PATH...${STD}"
 
+# Write the entire main script content (v19.0) to the target path using a here document.
 cat > "$TARGET_PATH" << 'EOF_SCRIPT'
 #!/bin/bash
 
 # ==========================================================
 # 🚀 SYSTEM ADMIN & EMERGENCY RESCUE TOOL
-# Version: 22.0 (Windowed Tools & Compact Layout)
-# Description: Admin Dashboard with multi-window support for monitors/servers.
+# Version: 19.0 (Graphics/Driver Repair Edition)
+# Description: Admin Dashboard with Headless/TTY Rescue capabilities.
 # ==========================================================
 
 # --- Terminal Layout ---
@@ -63,46 +66,18 @@ lastmessage="Welcome to the Desktop Admin Console."
 MODEL_PATH="/var/lib/ollama/models"
 OVERRIDE_FILE="/etc/systemd/system/ollama.service.d/override.conf"
 
-# Podman variables
+# Podman variables (must be global)
 loadproject="" 
 containername="" 
 PodName="" 
 thisfile="" 
+
 
 # --- Utility Functions ---
 
 pause(){
   echo ""
   read -r -p "  Press [Enter] to continue..."
-}
-
-SpawnTerminal(){
-    # USAGE: SpawnTerminal "command_to_run" "Window Title"
-    CMD="$1"
-    TITLE="$2"
-    
-    # Check if we are in a GUI environment
-    if [ -n "$DISPLAY" ]; then
-        if command -v gnome-terminal &> /dev/null; then
-            # GNOME Terminal (Ubuntu/Pop/Fedora default)
-            gnome-terminal --title="$TITLE" -- bash -c "$CMD; echo ''; echo 'Process finished. Press Enter to close.'; read"
-            lastmessage="Launched '$TITLE' in new window."
-        elif command -v xterm &> /dev/null; then
-            # XTerm (Universal fallback)
-            xterm -T "$TITLE" -e "bash -c \"$CMD; echo ''; echo 'Process finished. Press Enter to close.'; read\"" &
-            lastmessage="Launched '$TITLE' in new window."
-        else
-            # No terminal emulator found, run inline
-            echo -e "${YELLOW}No external terminal found (gnome-terminal/xterm). Running inline.${STD}"
-            $CMD
-            pause
-        fi
-    else
-        # TTY Mode (No GUI)
-        echo -e "${YELLOW}Running in TTY mode (No GUI). Running inline.${STD}"
-        $CMD
-        pause
-    fi
 }
 
 # --- HEADER (Dashboard) ---
@@ -139,11 +114,13 @@ DrawHeader(){
 # -----------------------------------------------------------
 
 InstallCoreTools(){
-    echo -e "${CYAN}--- Installing All Core & Rescue Tools (v22.0) ---${STD}"
-    
-    # Added xterm for window spawning capabilities
-    CORE_PACKAGES="htop neofetch ncdu timeshift testdisk boot-repair radeontop mc curl git speedtest-cli xterm"
-    RESCUE_PACKAGES="ubuntu-drivers-common network-manager xserver-xorg-video-all"
+    echo -e "${CYAN}--- Installing All Core & Rescue Tools (v19.0) ---${STD}"
+    echo "This ensures all dependencies for Rescue (GUI & Headless), Admin, and Podman are installed."
+
+    # Packages needed for full functionality
+    CORE_PACKAGES="htop neofetch ncdu timeshift testdisk boot-repair radeontop mc curl git speedtest-cli"
+    # ubuntu-drivers-common is crucial for the graphics rescue menu
+    RESCUE_PACKAGES="ubuntu-drivers-common network-manager"
     PODMAN_PACKAGES="podman containers-storage podman-docker docker-compose"
     APT_TOOLS="bc software-properties-common"
 
@@ -152,6 +129,7 @@ InstallCoreTools(){
     sudo add-apt-repository ppa:yannubuntu/boot-repair -y
     $SAI $CORE_PACKAGES $RESCUE_PACKAGES $PODMAN_PACKAGES
     
+    # Enable Podman Socket
     if command -v systemctl &> /dev/null; then
         sudo systemctl enable --now podman.socket
     fi
@@ -227,6 +205,8 @@ GrubRescueCheatSheet(){
     pause
 }
 
+# --- NEW: GRAPHICS RESCUE FUNCTIONS ---
+
 Graphics_Menu(){
     while true; do
         clear
@@ -234,32 +214,60 @@ Graphics_Menu(){
         echo -e "${RED}║${STD} ${WHITE}GRAPHICS & DISPLAY REPAIR (HEADLESS/TTY MODE)${STD}                                              ${RED}║${STD}"
         echo -e "${RED}╠════════════════════════════════════════════════════════════════════════════════════════════════════╣${STD}"
         echo " "
-        echo -e " ${CYAN}1.${STD} ${GREEN}NVIDIA:${STD} Auto-Install Drivers"
-        echo -e " ${CYAN}2.${STD} ${GREEN}NVIDIA:${STD} Purge Drivers (Fallback to Nouveau)"
-        echo -e " ${CYAN}3.${STD} ${MAGENTA}AMD:${STD} Purge AMDGPU-PRO"
-        echo -e " ${CYAN}4.${STD} ${BLUE}UNIVERSAL:${STD} Reinstall Open Source Stack (Mesa)"
-        echo -e " ${CYAN}5.${STD} ${WHITE}CONFIG:${STD} Delete Xorg Config"
-        echo -e " ${CYAN}6.${STD} ${WHITE}GUI:${STD} Restart Display Manager"
+        echo -e " ${YELLOW}Use these tools if you have a BLACK SCREEN or LOGIN LOOP.${STD}"
         echo " "
-        echo -e " ${RED}99. Return${STD}"
+        echo -e " ${CYAN}1.${STD} Auto-Install Recommended Drivers (ubuntu-drivers)"
+        echo -e " ${CYAN}2.${STD} Purge NVIDIA Drivers (Fixes boot issues caused by bad updates)"
+        echo -e " ${CYAN}3.${STD} Delete Xorg Config (Reset Display Settings)"
+        echo -e " ${CYAN}4.${STD} Restart Display Manager (GDM/LightDM - Restart GUI)"
+        echo -e " ${CYAN}5.${STD} Check Kernel Ring Buffer (dmesg - Look for GPU errors)"
         echo " "
-        read -r -p " Select: " g_choice
+        echo -e " ${RED}99. Return to Main Menu${STD}"
+        echo " "
+        read -r -p " Select Option: " g_choice
         
         case $g_choice in
-            1) sudo ubuntu-drivers autoinstall; pause ;;
-            2) sudo apt purge '*nvidia*' -y; sudo apt autoremove -y; pause ;;
-            3) if command -v amdgpu-install &> /dev/null; then sudo amdgpu-install --uninstall; else sudo apt purge "amdgpu-pro*" -y; fi; pause ;;
-            4) sudo apt install --reinstall xserver-xorg-video-all xserver-xorg-core libgl1-mesa-dri libgl1-mesa-glx -y; pause ;;
-            5) if [ -f /etc/X11/xorg.conf ]; then sudo rm /etc/X11/xorg.conf; fi; pause ;;
-            6) if systemctl is-active --quiet gdm; then sudo systemctl restart gdm; fi
-               if systemctl is-active --quiet lightdm; then sudo systemctl restart lightdm; fi ;;
+            1) 
+                echo -e "${GREEN}Running: sudo ubuntu-drivers autoinstall${STD}"
+                sudo ubuntu-drivers autoinstall
+                pause ;;
+            2)
+                echo -e "${RED}WARNING: This removes all NVIDIA packages. System will fallback to Nouveau.${STD}"
+                read -r -p "Are you sure? (y/n): " confirm
+                if [[ "$confirm" == "y" ]]; then
+                    sudo apt purge '*nvidia*' -y
+                    sudo apt autoremove -y
+                    echo "Purge complete. Reboot recommended."
+                    pause
+                fi ;;
+            3)
+                echo -e "${YELLOW}Deleting /etc/X11/xorg.conf...${STD}"
+                if [ -f /etc/X11/xorg.conf ]; then
+                    sudo rm /etc/X11/xorg.conf
+                    echo "Deleted. Reboot to auto-detect display."
+                else
+                    echo "File not found (This is usually good)."
+                fi
+                pause ;;
+            4)
+                echo -e "${RED}WARNING: This will kill your current graphical session!${STD}"
+                read -r -p "Are you sure? (y/n): " confirm
+                if [[ "$confirm" == "y" ]]; then
+                    if systemctl is-active --quiet gdm; then sudo systemctl restart gdm; fi
+                    if systemctl is-active --quiet lightdm; then sudo systemctl restart lightdm; fi
+                    if systemctl is-active --quiet sddm; then sudo systemctl restart sddm; fi
+                fi ;;
+            5)
+                dmesg | grep -iE "drm|nvidia|amdgpu|error|fail" | tail -n 20
+                pause ;;
             99) return ;;
+            *) ;;
         esac
     done
 }
 
 # -----------------------------------------------------------
-# 🤖 AI, DEV & GO
+# 🤖 AI & DEVELOPMENT (Functions unchanged)
 # -----------------------------------------------------------
 
 Ollama_Setup(){
@@ -289,48 +297,10 @@ Ollama_Setup(){
     fi
 }
 
-Ollama_Serve_Window(){
-    # Check if systemd service is running
-    if systemctl is-active --quiet ollama; then
-        echo -e "${YELLOW}The Ollama background service is currently RUNNING.${STD}"
-        echo "Running 'serve' manually in a window might conflict with the active service."
-        echo ""
-        echo "1. Stop system service and launch Window (Best for debugging)"
-        echo "2. Keep system service and just view logs (journalctl)"
-        echo "3. Cancel"
-        read -r -p "Select: " s_choice
-        
-        if [[ "$s_choice" == "1" ]]; then
-            sudo systemctl stop ollama
-            SpawnTerminal "ollama serve" "Ollama Server (Debug Mode)"
-        elif [[ "$s_choice" == "2" ]]; then
-            SpawnTerminal "journalctl -u ollama -f" "Ollama Service Logs"
-        else
-            return
-        fi
-    else
-        # Service stopped, just launch
-        SpawnTerminal "ollama serve" "Ollama Server"
-    fi
-}
-
-InstallGo(){
-    echo -e "${CYAN}--- Install Go (Golang) ---${STD}"
-    if command -v go &> /dev/null; then echo -e "${GREEN}Go is already installed.${STD}"; fi
-    echo -e "1. Snap (Latest) | 2. APT (Stable)"
-    read -r -p "Select: " choice
-    if [[ "$choice" == "1" ]]; then
-        if ! command -v snap &> /dev/null; then $SAI snapd; fi
-        sudo snap install go --classic
-    else
-        $SAI golang-go
-    fi
-    lastmessage="Go installation complete."
-}
-
-MonitorGPU_Window(){
+MonitorGPU(){
     if ! command -v radeontop &> /dev/null; then echo -e "${RED}radeontop missing.${STD}"; pause; return 1; fi
-    SpawnTerminal "sudo radeontop" "AMD GPU Monitor"
+    sudo radeontop
+    pause
 }
 
 InstallDocker(){
@@ -340,26 +310,37 @@ InstallDocker(){
 }
 
 # -----------------------------------------------------------
-# 📦 PODMAN FUNCTIONS
+# 📦 GENERIC PODMAN MANAGER FUNCTIONS (Abbreviated for length, logic same as v18)
 # -----------------------------------------------------------
 
 Setup(){ $SAI podman containers-storage podman-docker docker-compose; sudo systemctl enable --now podman.socket; pause; }
-CreateNewProject(){ read -rp "Project Name: " newproject; mkdir -p "$HOME/container_projects/$newproject"; cd "$HOME/container_projects/$newproject" 2>/dev/null; loadproject="$newproject"; lastmessage="Project created: $newproject"; }
-LoadProject(){ ls -d "$HOME/container_projects"/*/ 2>/dev/null | xargs -n 1 basename; read -rp "Project Name: " loadproject; cd "$HOME/container_projects/$loadproject" 2>/dev/null; lastmessage="Loaded: $loadproject"; }
+CreateNewProject(){ 
+    read -rp "Project Name: " newproject; 
+    mkdir -p "$HOME/container_projects/$newproject"; cd "$HOME/container_projects/$newproject" 2>/dev/null; 
+    loadproject="$newproject"; lastmessage="Project created: $newproject"; 
+}
+LoadProject(){ 
+    ls -d "$HOME/container_projects"/*/ 2>/dev/null | xargs -n 1 basename
+    read -rp "Project Name: " loadproject; 
+    cd "$HOME/container_projects/$loadproject" 2>/dev/null; lastmessage="Loaded: $loadproject"; 
+}
 NamePod(){ sudo podman pod list; read -rp "Name: " PodName; }  
 CreatePod(){ sudo podman pod create --name "$PodName"; lastmessage="Pod '$PodName' created."; }
 SelectContainer(){ sudo podman ps -a --pod; read -rp "Container Name: " containername; }
 ChooseFile(){ ls "$HOME/container_projects/$loadproject/"*.yml 2>/dev/null; read -rp "File: " thisfile; }
 RunCompose(){ cd "$HOME/container_projects/$loadproject" 2>/dev/null; sudo docker-compose -f "$thisfile" up; }
 ComposeDown(){ cd "$HOME/container_projects/$loadproject" 2>/dev/null; sudo docker-compose -f "$thisfile" down; }
-GetPodmanStats(){ local R=$(sudo podman ps -q 2>/dev/null | wc -l); local I=$(sudo podman images -q 2>/dev/null | wc -l); local P=$(sudo podman pod list -q 2>/dev/null | wc -l); echo -e "${GREEN}Running: ${R:-0}${STD} | ${CYAN}Images: ${I:-0}${STD} | ${MAGENTA}Pods: ${P:-0}${STD}"; }
+GetPodmanStats(){
+    local R=$(sudo podman ps -q 2>/dev/null | wc -l); local I=$(sudo podman images -q 2>/dev/null | wc -l); local P=$(sudo podman pod list -q 2>/dev/null | wc -l)
+    echo -e "${GREEN}Running: ${R:-0}${STD} | ${CYAN}Images: ${I:-0}${STD} | ${MAGENTA}Pods: ${P:-0}${STD}"
+}
 
 Podman_Menu(){
     local podman_lastmessage="Container: ${containername:-None} | Pod: ${PodName:-None}"
     while true; do
         clear
         echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════════════════════════╗${STD}"
-        echo -e "${BLUE}║${STD} ${WHITE}PODMAN CONTAINER MANAGER V22.0${STD}                                                         ${BLUE}║${STD}"
+        echo -e "${BLUE}║${STD} ${WHITE}PODMAN CONTAINER MANAGER V19.0${STD}                                                         ${BLUE}║${STD}"
         echo -e "${BLUE}╠════════════════════════════════════════════════════════════════════════════════════════════════════╣${STD}"
         printf "${BLUE}║${STD} ${CYAN}%-14s${STD} : %-30s ${CYAN}%-14s${STD} : %-30s ${BLUE}║${STD}\n" "Project Folder" "${loadproject:-None}" "Selected Pod" "${PodName:-None}"
         printf "${BLUE}║${STD} ${CYAN}%-14s${STD} : %-30s ${CYAN}%-14s${STD} : %-30s ${BLUE}║${STD}\n" "Container Name" "${containername:-None}" "Stats" "$(GetPodmanStats)"
@@ -392,24 +373,24 @@ Podman_Menu(){
 ShowMenu(){
     DrawHeader
     echo ""
-    # COMPACT GROUPING
-    echo -e " ${GREEN}:: 1. MAINTENANCE & DIAGNOSTICS ::${STD}"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "10." "Install Core Tools" "13." "Disk Analyzer (ncdu)"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "11." "System Updates" "14." "Timeshift Snapshots"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "12." "System Info (Neofetch)" "15." "Network Speedtest"
+    echo -e " ${GREEN}:: 1. MAINTENANCE ::${STD}"
+    echo -e "  ${WHITE}10.${STD} ${YELLOW}Install All Core Tools${STD} | ${WHITE}11.${STD} Update System | ${WHITE}13.${STD} Disk Analyzer | ${WHITE}14.${STD} Timeshift"
 
     echo -e "\n ${RED}:: 2. EMERGENCY RESCUE ROOM ::${STD}"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "20." "Auto-Diagnostic & Repair" "23." "Install TestDisk"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "21." "Run Boot-Repair (GUI)" "24." "${RED}GRAPHICS REPAIR (GPU/Xorg)${STD}"
-    printf " ${WHITE}%-2s${STD} %-35s\n" "22." "GRUB Rescue Cheatsheet"
+    echo -e "  ${WHITE}20.${STD} ${YELLOW}Auto-Diagnostic & Repair${STD}"
+    echo -e "  ${WHITE}21.${STD} Run Boot-Repair (GUI)"
+    echo -e "  ${WHITE}22.${STD} GRUB Rescue Cheatsheet"
+    echo -e "  ${WHITE}23.${STD} Install TestDisk"
+    echo -e "  ${WHITE}24.${STD} ${RED}GRAPHICS & DISPLAY REPAIR (Drivers/Xorg) [NEW]${STD}"
     
-    echo -e "\n ${CYAN}:: 3. DEV, AI & CONTAINERS ::${STD}"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "30." "Install/Config Ollama" "34." "Install Go (Golang)"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "31." "${MAGENTA}PODMAN MANAGER MENU${STD}" "35." "Start Ollama Server (${YELLOW}Window${STD})"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "32." "Install Docker" "36." "Monitor GPU Usage (${YELLOW}Window${STD})"
+    echo -e "\n ${CYAN}:: 3. DEV & AI ::${STD}"
+    echo -e "  ${WHITE}30.${STD} Install/Config Ollama (RX 570 Patch)"
+    echo -e "  ${WHITE}31.${STD} ${MAGENTA}PODMAN MANAGER SUBMENU${STD}"
+    echo -e "  ${WHITE}32.${STD} Install Docker"
+    echo -e "  ${WHITE}33.${STD} Monitor GPU"
     
     echo -e "\n ${MAGENTA}:: 4. POWER ::${STD}"
-    echo -e "  ${WHITE}40.${STD} Add Sudo User | ${WHITE}80.${STD} Reboot | ${WHITE}99.${STD} Exit"
+    echo -e "  ${WHITE}80.${STD} Reboot | ${WHITE}99.${STD} Exit"
     
     echo " ----------------------------------------------------------------------------------------------------"
     echo -e "${YELLOW} $lastmessage${STD}"
@@ -418,11 +399,10 @@ ShowMenu(){
     
     lastmessage=""
     case $choice in
-        10) InstallCoreTools ;; 11) SystemUpdates ;; 12) neofetch; pause ;; 13) DiskAnalyzer ;; 14) SnapshotManager ;; 15) NetworkSpeed ;;
-        20) GuidedRescue ;; 21) RunBootRepairGUI ;; 22) GrubRescueCheatSheet ;; 23) $SAI testdisk ;; 24) Graphics_Menu ;; 
-        30) Ollama_Setup ;; 31) Podman_Menu ;; 32) InstallDocker ;; 34) InstallGo ;;
-        35) Ollama_Serve_Window ;; 36) MonitorGPU_Window ;;
-        40) read -r -p "User: " u; sudo adduser "$u"; sudo usermod -aG sudo "$u" ;;
+        10) InstallCoreTools ;; 11) SystemUpdates ;; 13) DiskAnalyzer ;; 14) SnapshotManager ;;
+        20) GuidedRescue ;; 21) RunBootRepairGUI ;; 22) GrubRescueCheatSheet ;; 23) $SAI testdisk ;; 
+        24) Graphics_Menu ;; # NEW SUBMENU
+        30) Ollama_Setup ;; 31) Podman_Menu ;; 32) InstallDocker ;; 33) MonitorGPU ;;
         80) sudo reboot ;; 99) clear; exit 0 ;;
         *) lastmessage="${RED}Invalid Option: $choice${STD}" ;;
     esac
@@ -431,6 +411,7 @@ ShowMenu(){
 if ! command -v bc &> /dev/null; then sudo apt install -y bc > /dev/null 2>&1; fi
 while true; do ShowMenu; done
 EOF_SCRIPT
+# --- END OF TOOL CODE ---
 
 # Set Permissions
 chmod +x "$TARGET_PATH"
