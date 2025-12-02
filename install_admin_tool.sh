@@ -33,15 +33,15 @@ if [ -f "$TARGET_PATH" ]; then
   echo -e "${YELLOW}Overwriting existing script...${STD}"
 fi
 
-echo -e "${GREEN}Installing SAERT (v22.0 - Windowed Tools & Compact Menu) to $TARGET_PATH...${STD}"
+echo -e "${GREEN}Installing SAERT (v23.0 - Official Go Install & Windowed Tools) to $TARGET_PATH...${STD}"
 
 cat > "$TARGET_PATH" << 'EOF_SCRIPT'
 #!/bin/bash
 
 # ==========================================================
 # 🚀 SYSTEM ADMIN & EMERGENCY RESCUE TOOL
-# Version: 22.0 (Windowed Tools & Compact Layout)
-# Description: Admin Dashboard with multi-window support for monitors/servers.
+# Version: 23.0 (Official Go Integration)
+# Description: Admin Dashboard with robust Dev, AI, and Rescue tools.
 # ==========================================================
 
 # --- Terminal Layout ---
@@ -77,31 +77,22 @@ pause(){
 }
 
 SpawnTerminal(){
-    # USAGE: SpawnTerminal "command_to_run" "Window Title"
     CMD="$1"
     TITLE="$2"
-    
-    # Check if we are in a GUI environment
     if [ -n "$DISPLAY" ]; then
         if command -v gnome-terminal &> /dev/null; then
-            # GNOME Terminal (Ubuntu/Pop/Fedora default)
             gnome-terminal --title="$TITLE" -- bash -c "$CMD; echo ''; echo 'Process finished. Press Enter to close.'; read"
             lastmessage="Launched '$TITLE' in new window."
         elif command -v xterm &> /dev/null; then
-            # XTerm (Universal fallback)
             xterm -T "$TITLE" -e "bash -c \"$CMD; echo ''; echo 'Process finished. Press Enter to close.'; read\"" &
             lastmessage="Launched '$TITLE' in new window."
         else
-            # No terminal emulator found, run inline
-            echo -e "${YELLOW}No external terminal found (gnome-terminal/xterm). Running inline.${STD}"
-            $CMD
-            pause
+            echo -e "${YELLOW}No external terminal found. Running inline.${STD}"
+            $CMD; pause
         fi
     else
-        # TTY Mode (No GUI)
-        echo -e "${YELLOW}Running in TTY mode (No GUI). Running inline.${STD}"
-        $CMD
-        pause
+        echo -e "${YELLOW}Running in TTY mode. Running inline.${STD}"
+        $CMD; pause
     fi
 }
 
@@ -139,10 +130,9 @@ DrawHeader(){
 # -----------------------------------------------------------
 
 InstallCoreTools(){
-    echo -e "${CYAN}--- Installing All Core & Rescue Tools (v22.0) ---${STD}"
-    
-    # Added xterm for window spawning capabilities
-    CORE_PACKAGES="htop neofetch ncdu timeshift testdisk boot-repair radeontop mc curl git speedtest-cli xterm"
+    echo -e "${CYAN}--- Installing All Core & Rescue Tools (v23.0) ---${STD}"
+    # Added wget for the Go installer
+    CORE_PACKAGES="htop neofetch ncdu timeshift testdisk boot-repair radeontop mc curl wget git speedtest-cli xterm"
     RESCUE_PACKAGES="ubuntu-drivers-common network-manager xserver-xorg-video-all"
     PODMAN_PACKAGES="podman containers-storage podman-docker docker-compose"
     APT_TOOLS="bc software-properties-common"
@@ -235,9 +225,9 @@ Graphics_Menu(){
         echo -e "${RED}╠════════════════════════════════════════════════════════════════════════════════════════════════════╣${STD}"
         echo " "
         echo -e " ${CYAN}1.${STD} ${GREEN}NVIDIA:${STD} Auto-Install Drivers"
-        echo -e " ${CYAN}2.${STD} ${GREEN}NVIDIA:${STD} Purge Drivers (Fallback to Nouveau)"
+        echo -e " ${CYAN}2.${STD} ${GREEN}NVIDIA:${STD} Purge Drivers"
         echo -e " ${CYAN}3.${STD} ${MAGENTA}AMD:${STD} Purge AMDGPU-PRO"
-        echo -e " ${CYAN}4.${STD} ${BLUE}UNIVERSAL:${STD} Reinstall Open Source Stack (Mesa)"
+        echo -e " ${CYAN}4.${STD} ${BLUE}UNIVERSAL:${STD} Reinstall Mesa/Xorg (Intel/AMD Fix)"
         echo -e " ${CYAN}5.${STD} ${WHITE}CONFIG:${STD} Delete Xorg Config"
         echo -e " ${CYAN}6.${STD} ${WHITE}GUI:${STD} Restart Display Manager"
         echo " "
@@ -290,42 +280,53 @@ Ollama_Setup(){
 }
 
 Ollama_Serve_Window(){
-    # Check if systemd service is running
     if systemctl is-active --quiet ollama; then
-        echo -e "${YELLOW}The Ollama background service is currently RUNNING.${STD}"
-        echo "Running 'serve' manually in a window might conflict with the active service."
-        echo ""
-        echo "1. Stop system service and launch Window (Best for debugging)"
-        echo "2. Keep system service and just view logs (journalctl)"
-        echo "3. Cancel"
+        echo -e "${YELLOW}Ollama service is RUNNING.${STD} Stop it to debug manually?"
+        echo "1. Stop service & Launch Window  |  2. View Logs  |  3. Cancel"
         read -r -p "Select: " s_choice
-        
-        if [[ "$s_choice" == "1" ]]; then
-            sudo systemctl stop ollama
-            SpawnTerminal "ollama serve" "Ollama Server (Debug Mode)"
-        elif [[ "$s_choice" == "2" ]]; then
-            SpawnTerminal "journalctl -u ollama -f" "Ollama Service Logs"
-        else
-            return
-        fi
+        if [[ "$s_choice" == "1" ]]; then sudo systemctl stop ollama; SpawnTerminal "ollama serve" "Ollama Server"; 
+        elif [[ "$s_choice" == "2" ]]; then SpawnTerminal "journalctl -u ollama -f" "Ollama Logs"; fi
     else
-        # Service stopped, just launch
         SpawnTerminal "ollama serve" "Ollama Server"
     fi
 }
 
 InstallGo(){
-    echo -e "${CYAN}--- Install Go (Golang) ---${STD}"
-    if command -v go &> /dev/null; then echo -e "${GREEN}Go is already installed.${STD}"; fi
-    echo -e "1. Snap (Latest) | 2. APT (Stable)"
-    read -r -p "Select: " choice
-    if [[ "$choice" == "1" ]]; then
-        if ! command -v snap &> /dev/null; then $SAI snapd; fi
-        sudo snap install go --classic
-    else
-        $SAI golang-go
+    echo -e "${CYAN}--- Install Go (Official golang.org) ---${STD}"
+    echo "This fetches the latest tarball directly from go.dev"
+    
+    # 1. Detect Arch
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "x86_64" ]]; then GOARCH="amd64"; elif [[ "$ARCH" == "aarch64" ]]; then GOARCH="arm64"; else echo "Unsupported Arch"; pause; return; fi
+
+    # 2. Scrape latest version
+    echo "Checking latest version..."
+    LATEST_GO=$(curl -s https://go.dev/dl/?mode=json | grep -o 'go[0-9.]*' | head -n 1) # e.g. go1.22.1
+    if [[ -z "$LATEST_GO" ]]; then echo "Failed to find version. Check internet."; pause; return; fi
+
+    echo -e "${GREEN}Latest: ${LATEST_GO} (${GOARCH})${STD}"
+    read -r -p "Install now? (y/n): " confirm
+    if [[ "$confirm" == "y" ]]; then
+        echo "Removing old Go..."
+        sudo rm -rf /usr/local/go
+        
+        echo "Downloading..."
+        curl -L "https://go.dev/dl/${LATEST_GO}.linux-${GOARCH}.tar.gz" -o /tmp/go.tar.gz
+        
+        echo "Extracting..."
+        sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+        rm /tmp/go.tar.gz
+        
+        echo "Updating PATH in ~/.bashrc..."
+        if ! grep -q "/usr/local/go/bin" ~/.bashrc; then
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+        fi
+        # Export for current session just in case
+        export PATH=$PATH:/usr/local/go/bin
+        
+        echo -e "${GREEN}Success!${STD} Run 'source ~/.bashrc' or restart terminal."
     fi
-    lastmessage="Go installation complete."
+    pause
 }
 
 MonitorGPU_Window(){
@@ -359,7 +360,7 @@ Podman_Menu(){
     while true; do
         clear
         echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════════════════════════╗${STD}"
-        echo -e "${BLUE}║${STD} ${WHITE}PODMAN CONTAINER MANAGER V22.0${STD}                                                         ${BLUE}║${STD}"
+        echo -e "${BLUE}║${STD} ${WHITE}PODMAN CONTAINER MANAGER V23.0${STD}                                                         ${BLUE}║${STD}"
         echo -e "${BLUE}╠════════════════════════════════════════════════════════════════════════════════════════════════════╣${STD}"
         printf "${BLUE}║${STD} ${CYAN}%-14s${STD} : %-30s ${CYAN}%-14s${STD} : %-30s ${BLUE}║${STD}\n" "Project Folder" "${loadproject:-None}" "Selected Pod" "${PodName:-None}"
         printf "${BLUE}║${STD} ${CYAN}%-14s${STD} : %-30s ${CYAN}%-14s${STD} : %-30s ${BLUE}║${STD}\n" "Container Name" "${containername:-None}" "Stats" "$(GetPodmanStats)"
@@ -404,7 +405,7 @@ ShowMenu(){
     printf " ${WHITE}%-2s${STD} %-35s\n" "22." "GRUB Rescue Cheatsheet"
     
     echo -e "\n ${CYAN}:: 3. DEV, AI & CONTAINERS ::${STD}"
-    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "30." "Install/Config Ollama" "34." "Install Go (Golang)"
+    printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "30." "Install/Config Ollama" "34." "${GREEN}Install Go (Official Site)${STD}"
     printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "31." "${MAGENTA}PODMAN MANAGER MENU${STD}" "35." "Start Ollama Server (${YELLOW}Window${STD})"
     printf " ${WHITE}%-2s${STD} %-35s ${WHITE}%-2s${STD} %-35s\n" "32." "Install Docker" "36." "Monitor GPU Usage (${YELLOW}Window${STD})"
     

@@ -963,7 +963,7 @@ const htmlContent = `
                 const finalTokensPerSecond = (tokenCount / ((Date.now() - generationStart) / 1000)).toFixed(2);
                 els.tokensPerSec.textContent = finalTokensPerSecond + ' tok/s';
                 els.responseToolbar.classList.remove('hidden');
-                showSuccess(`Generation complete: ${tokenCount} tokens`);
+                showSuccess('Generation complete: ${tokenCount} tokens');
             } catch (error) {
                 els.statusProcessing.textContent = '✗ Failed';
                 showError('Generation failed: ' + error.message);
@@ -1070,7 +1070,7 @@ const htmlContent = `
                 els.statusProcessing.textContent = '✓ Complete';
                 const finalTokensPerSecond = (tokenCount / ((Date.now() - generationStart) / 1000)).toFixed(2);
                 els.tokensPerSec.textContent = finalTokensPerSecond + ' tok/s';
-                showSuccess(`Message sent: ${tokenCount} tokens`);
+                showSuccess('Message sent: ${tokenCount} tokens');
             } catch (error) {
                 els.statusProcessing.textContent = '✗ Failed';
                 showError('Chat failed: ' + error.message);
@@ -1181,4 +1181,4 @@ const htmlContent = `
     </script>
 </body>
 </html>
-\`
+`
