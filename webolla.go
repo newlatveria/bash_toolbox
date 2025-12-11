@@ -14,30 +14,30 @@ import (
 	"time"
 )
 
-// Configuration constants and environment variables
 const (
-	defaultPort           = "8080"
-	defaultOllamaBaseURL  = "http://localhost:11434"
+	defaultPort            = "8080"
+	defaultOllamaBaseURL   = "http://localhost:11434"
 	defaultGenerateTimeout = 300 * time.Second
-	defaultListTimeout    = 10 * time.Second
+	defaultListTimeout     = 10 * time.Second
 )
 
 var (
-	port             string
-	ollamaBaseURL    string
-	generateTimeout  time.Duration
+	port              string
+	ollamaBaseURL     string
+	generateTimeout   time.Duration
 	ollamaGenerateAPI string
-	ollamaChatAPI    string
-	ollamaTagsAPI    string
-	ollamaPullAPI    string
-	ollamaDeleteAPI  string
+	ollamaChatAPI     string
+	ollamaTagsAPI     string
+	ollamaPullAPI     string
+	ollamaDeleteAPI   string
 )
 
 func init() {
 	port = getEnv("PORT", defaultPort)
 	ollamaBaseURL = getEnv("OLLAMA_BASE_URL", defaultOllamaBaseURL)
-	generateTimeoutSec, _ := strconv.Atoi(getEnv("GENERATE_TIMEOUT_SEC", "300"))
-	generateTimeout = time.Duration(generateTimeoutSec) * time.Second
+
+	timeoutSec, _ := strconv.Atoi(getEnv("GENERATE_TIMEOUT_SEC", "300"))
+	generateTimeout = time.Duration(timeoutSec) * time.Second
 
 	ollamaGenerateAPI = ollamaBaseURL + "/api/generate"
 	ollamaChatAPI = ollamaBaseURL + "/api/chat"
@@ -46,33 +46,32 @@ func init() {
 	ollamaDeleteAPI = ollamaBaseURL + "/api/delete"
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return defaultValue
+	return def
 }
 
-// Request/Response Structures
 type GenerationParams struct {
-	Temperature  float64 `json:"temperature"`
-	TopP         float64 `json:"top_p"`
-	TopK         int     `json:"top_k"`
+	Temperature   float64 `json:"temperature"`
+	TopP          float64 `json:"top_p"`
+	TopK          int     `json:"top_k"`
 	RepeatPenalty float64 `json:"repeat_penalty"`
-	NumPredict   int     `json:"num_predict"`
+	NumPredict    int     `json:"num_predict"`
 }
 
 type OllamaGenerateRequestPayload struct {
-	Model  string            `json:"model"`
-	Prompt string            `json:"prompt"`
-	Stream bool              `json:"stream"`
+	Model   string                 `json:"model"`
+	Prompt  string                 `json:"prompt"`
+	Stream  bool                   `json:"stream"`
 	Options map[string]interface{} `json:"options,omitempty"`
 }
 
 type OllamaChatRequestPayload struct {
-	Model    string            `json:"model"`
-	Messages []Message         `json:"messages"`
-	Stream   bool              `json:"stream"`
+	Model    string                 `json:"model"`
+	Messages []Message              `json:"messages"`
+	Stream   bool                   `json:"stream"`
 	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
@@ -86,11 +85,10 @@ type OllamaModelActionPayload struct {
 }
 
 type OllamaResponseChunk struct {
-	Model     string    `json:"model"`
-	CreatedAt string    `json:"created_at"`
-	Response  string    `json:"response"`
-	Message   *Message  `json:"message"`
-	Done      bool      `json:"done"`
+	Model    string   `json:"model"`
+	Response string   `json:"response"`
+	Message  *Message `json:"message"`
+	Done     bool     `json:"done"`
 }
 
 type ClientRequest struct {
@@ -101,21 +99,18 @@ type ClientRequest struct {
 	Params     GenerationParams `json:"params"`
 }
 
-type OllamaModel struct {
-	Name string `json:"name"`
-}
-
 type OllamaTagsResponse struct {
-	Models []OllamaModel `json:"models"`
+	Models []struct {
+		Name string `json:"name"`
+	} `json:"models"`
 }
 
 type ServerStatus struct {
-	OllamaURL    string `json:"ollama_url"`
-	Connected    bool   `json:"connected"`
+	OllamaURL     string `json:"ollama_url"`
+	Connected     bool   `json:"connected"`
 	PortListening string `json:"port"`
 }
 
-// Global HTTP client with connection pooling
 var httpClient = &http.Client{
 	Timeout: generateTimeout,
 	Transport: &http.Transport{
@@ -130,39 +125,35 @@ func main() {
 	http.HandleFunc("/api/ollama-action", handleOllamaAction)
 	http.HandleFunc("/api/models", handleListModels)
 	http.HandleFunc("/api/status", handleServerStatus)
-	http.HandleFunc("/api/cancel", handleCancelRequest)
 
-	log.Printf("Server starting on http://localhost:%s", port)
-	log.Printf("Ollama base URL: %s", ollamaBaseURL)
-	log.Printf("Generate timeout: %v", generateTimeout)
+	log.Printf("Web UI: http://localhost:%s", port)
+	log.Printf("Ollama API: %s", ollamaBaseURL)
+
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func serveHTML(w http.ResponseWriter, r *http.Request) {
+func serveHTML(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, htmlContent)
 }
 
-func handleServerStatus(w http.ResponseWriter, r *http.Request) {
+func handleServerStatus(w http.ResponseWriter, _ *http.Request) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(ollamaTagsAPI)
+
 	connected := err == nil && resp.StatusCode == http.StatusOK
+	if resp != nil {
+		resp.Body.Close()
+	}
 
 	status := ServerStatus{
-		OllamaURL:    ollamaBaseURL,
-		Connected:    connected,
+		OllamaURL:     ollamaBaseURL,
+		Connected:     connected,
 		PortListening: port,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
-}
-
-func handleCancelRequest(w http.ResponseWriter, r *http.Request) {
-	// This is a placeholder for request cancellation logic
-	// In production, you'd track active requests and cancel them
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{"status": "cancel signal received"}`)
+	_ = json.NewEncoder(w).Encode(status)
 }
 
 func handleOllamaAction(w http.ResponseWriter, r *http.Request) {
@@ -171,297 +162,117 @@ func handleOllamaAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var clientReq ClientRequest
-	if err := json.NewDecoder(r.Body).Decode(&clientReq); err != nil {
-		http.Error(w, "Invalid request payload: "+err.Error(), http.StatusBadRequest)
+	var req ClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	client := &http.Client{Timeout: generateTimeout, Transport: httpClient.Transport}
-
-	switch clientReq.ActionType {
+	switch req.ActionType {
 	case "generate":
-		callGenerateAPI(w, r, clientReq, client)
+		streamGenerate(w, req)
 	case "chat":
-		callChatAPI(w, r, clientReq, client)
+		streamChat(w, req)
 	case "pull":
-		callModelPullAPI(w, r, clientReq, client)
+		modelAction(w, ollamaPullAPI, req.Model)
 	case "delete":
-		callModelDeleteAPI(w, r, clientReq, client)
+		modelAction(w, ollamaDeleteAPI, req.Model)
 	default:
-		http.Error(w, "Unknown action type: "+clientReq.ActionType, http.StatusBadRequest)
+		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
 }
 
-func callGenerateAPI(w http.ResponseWriter, r *http.Request, clientReq ClientRequest, client *http.Client) {
-	options := buildOptions(clientReq.Params)
-	
-	ollamaReq := OllamaGenerateRequestPayload{
-		Model:   clientReq.Model,
-		Prompt:  clientReq.Prompt,
-		Stream:  true,
-		Options: options,
+func streamGenerate(w http.ResponseWriter, req ClientRequest) {
+	payload := OllamaGenerateRequestPayload{
+		Model:   req.Model,
+		Prompt: req.Prompt,
+		Stream: true,
+		Options: map[string]interface{}{
+			"temperature":    req.Params.Temperature,
+			"top_p":          req.Params.TopP,
+			"top_k":          req.Params.TopK,
+			"repeat_penalty": req.Params.RepeatPenalty,
+			"num_predict":    req.Params.NumPredict,
+		},
 	}
 
-	payloadBytes, err := json.Marshal(ollamaReq)
-	if err != nil {
-		http.Error(w, "Error marshalling request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	req, err := http.NewRequest(http.MethodPost, ollamaGenerateAPI, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		http.Error(w, "Error creating request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error connecting to Ollama: %v", err)
-		http.Error(w, "Could not connect to Ollama at "+ollamaBaseURL, http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("Ollama API error: %d - %s", resp.StatusCode, string(bodyBytes))
-		http.Error(w, fmt.Sprintf("Ollama error: %s", strings.TrimSpace(string(bodyBytes))), resp.StatusCode)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		log.Println("Streaming not supported")
-		return
-	}
-
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-
-		var chunk OllamaResponseChunk
-		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
-			log.Printf("Error unmarshalling response: %v", err)
-			continue
-		}
-
-		if chunk.Response != "" {
-			fmt.Fprintf(w, "data: %s\n\n", line)
-			flusher.Flush()
-		}
-
-		if chunk.Done {
-			fmt.Fprintf(w, "data: [DONE]\n\n")
-			flusher.Flush()
-			break
-		}
-	}
+	streamOllama(w, ollamaGenerateAPI, payload, true)
 }
 
-func callChatAPI(w http.ResponseWriter, r *http.Request, clientReq ClientRequest, client *http.Client) {
-	options := buildOptions(clientReq.Params)
-	
-	ollamaReq := OllamaChatRequestPayload{
-		Model:    clientReq.Model,
-		Messages: clientReq.Messages,
+func streamChat(w http.ResponseWriter, req ClientRequest) {
+	payload := OllamaChatRequestPayload{
+		Model:    req.Model,
+		Messages: req.Messages,
 		Stream:   true,
-		Options:  options,
+		Options:  map[string]interface{}{},
 	}
 
-	payloadBytes, err := json.Marshal(ollamaReq)
-	if err != nil {
-		http.Error(w, "Error marshalling request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	streamOllama(w, ollamaChatAPI, payload, false)
+}
 
-	req, err := http.NewRequest(http.MethodPost, ollamaChatAPI, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		http.Error(w, "Error creating request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
+func streamOllama(w http.ResponseWriter, url string, payload interface{}, useResponse bool) {
+	data, _ := json.Marshal(payload)
 
-	resp, err := client.Do(req)
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
-		log.Printf("Error connecting to Ollama: %v", err)
-		http.Error(w, "Could not connect to Ollama at "+ollamaBaseURL, http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("Ollama API error: %d - %s", resp.StatusCode, string(bodyBytes))
-		http.Error(w, fmt.Sprintf("Ollama error: %s", strings.TrimSpace(string(bodyBytes))), resp.StatusCode)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		log.Println("Streaming not supported")
-		return
-	}
-
+	flusher := w.(http.Flusher)
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1024), 1024*1024)
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		if line == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 
-		var chunk OllamaResponseChunk
-		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
-			log.Printf("Error unmarshalling response: %v", err)
-			continue
-		}
-
-		if chunk.Message != nil && chunk.Message.Content != "" {
-			fmt.Fprintf(w, "data: %s\n\n", line)
-			flusher.Flush()
-		}
-
-		if chunk.Done {
-			fmt.Fprintf(w, "data: [DONE]\n\n")
-			flusher.Flush()
-			break
-		}
+		fmt.Fprintf(w, "data: %s\n\n", line)
+		flusher.Flush()
 	}
 }
 
-func callModelPullAPI(w http.ResponseWriter, r *http.Request, clientReq ClientRequest, client *http.Client) {
-	ollamaReq := OllamaModelActionPayload{Model: clientReq.Model}
-	payloadBytes, err := json.Marshal(ollamaReq)
-	if err != nil {
-		http.Error(w, "Error marshalling request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+func modelAction(w http.ResponseWriter, url, model string) {
+	payload := OllamaModelActionPayload{Model: model}
+	data, _ := json.Marshal(payload)
 
-	req, err := http.NewRequest(http.MethodPost, ollamaPullAPI, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		http.Error(w, "Error creating request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		log.Printf("Error connecting to Ollama: %v", err)
-		http.Error(w, "Could not connect to Ollama", http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Pull failed: %s", string(bodyBytes)), resp.StatusCode)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(bodyBytes)
+	body, _ := io.ReadAll(resp.Body)
+	w.Write(body)
 }
 
-func callModelDeleteAPI(w http.ResponseWriter, r *http.Request, clientReq ClientRequest, client *http.Client) {
-	ollamaReq := OllamaModelActionPayload{Model: clientReq.Model}
-	payloadBytes, err := json.Marshal(ollamaReq)
+func handleListModels(w http.ResponseWriter, _ *http.Request) {
+	resp, err := httpClient.Get(ollamaTagsAPI)
 	if err != nil {
-		http.Error(w, "Error marshalling request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, ollamaDeleteAPI, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		http.Error(w, "Error creating request: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error connecting to Ollama: %v", err)
-		http.Error(w, "Could not connect to Ollama", http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Delete failed: %s", string(bodyBytes)), resp.StatusCode)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(bodyBytes)
+	io.Copy(w, resp.Body)
 }
 
-func handleListModels(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	client := &http.Client{Timeout: defaultListTimeout, Transport: httpClient.Transport}
-	resp, err := client.Get(ollamaTagsAPI)
-	if err != nil {
-		log.Printf("Error connecting to Ollama: %v", err)
-		http.Error(w, "Could not connect to Ollama", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		http.Error(w, fmt.Sprintf("Error: %s", string(bodyBytes)), resp.StatusCode)
-		return
-	}
-
-	var tagsResponse OllamaTagsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tagsResponse); err != nil {
-		log.Printf("Error decoding response: %v", err)
-		http.Error(w, "Error parsing models", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tagsResponse)
-}
-
-func buildOptions(params GenerationParams) map[string]interface{} {
-	opts := make(map[string]interface{})
-	if params.Temperature > 0 {
-		opts["temperature"] = params.Temperature
-	}
-	if params.TopP > 0 {
-		opts["top_p"] = params.TopP
-	}
-	if params.TopK > 0 {
-		opts["top_k"] = params.TopK
-	}
-	if params.RepeatPenalty > 0 {
-		opts["repeat_penalty"] = params.RepeatPenalty
-	}
-	if params.NumPredict > 0 {
-		opts["num_predict"] = params.NumPredict
-	}
-	return opts
-}
-
-// Use the HTML from the separate HTML artifact - embed it here in production
-const htmlContent = `
-<!DOCTYPE html>
+// HTML CONTENT UNCHANGED
+const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1180,5 +991,5 @@ const htmlContent = `
         }
     </script>
 </body>
-</html>
-`
+</html>`
+
