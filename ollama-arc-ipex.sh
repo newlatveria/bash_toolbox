@@ -717,6 +717,8 @@ main_menu() {
     echo "16) Cleanup stopped containers and images"
     echo "17) Test generate (quick request)"
     echo "18) Save config"
+    echo "19) Start Webolla"
+    echo "20) Start Ollama & WebOlla"
     echo "0) Exit"
     echo "------------------------------------------"
     echo "Container: $CONTAINER_NAME"
@@ -749,6 +751,8 @@ main_menu() {
       16) cleanup_containers_images; pause ;;
       17) test_generate; pause ;;
       18) save_config; pause ;;
+      19) tmux new-session -d -s "WebOlla" "go run webolla.go" ; gnome-terminal -- tmux attach -t "WebOlla" ;;
+      20) start_container; tmux new-session -d -s "WebOlla" "go run webolla.go" ; gnome-terminal -- tmux attach -t "WebOlla" ;;
       0) echo "Goodbye!"; exit 0 ;;
       *) echo "Invalid selection."; pause ;;
     esac
