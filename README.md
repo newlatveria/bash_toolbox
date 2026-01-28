@@ -1,6 +1,3 @@
-This README is designed to be a comprehensive "Field Manual" for your `lxdmenu.sh` Pro Manager. It covers everything from the initial Pop!_OS setup to complex hardware passthrough and global storage management.
-
----
 
 # LXD Pro Manager (Snap/Pop!_OS Edition)
 
@@ -118,5 +115,3 @@ export PATH=$PATH:/snap/bin
 ```
 
 The script handles this automatically at the top of the file, but manual terminal users may need to run this once.
-
-Would you like me to generate a **PDF-ready manual** or a **Video Tutorial Prompt** based on these scenarios?
