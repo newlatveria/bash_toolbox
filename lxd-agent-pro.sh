@@ -307,7 +307,7 @@ resta(){ lxc restart "$newcon"; lastmessage=" $newcon restarted. "; }
 delcon(){ lxc stop "$newcon" --force 2>/dev/null; sleep 1; lxc delete "$newcon"; lastmessage="$newcon deleted."; }
 
 # ==============================================================================
-#  AGENT ZERO SUITE FUNCTIONS (NEW)
+#  AGENT ZERO SUITE FUNCTIONS 
 # ==============================================================================
 
 AZ_NetworkDoctor(){
@@ -352,6 +352,25 @@ AZ_SetupContainer(){
         apt install -y python3-full python3-pip python3-venv git curl intel-opencl-icd intel-level-zero-gpu
     "
     lastmessage="Agent Zero Container Init Complete (with Arc A770)."
+}
+
+AZ_ForceArcEnabler(){
+    # 1. Create the systemd override directory inside the container
+lxc exec agent-zero-arc -- mkdir -p /etc/systemd/system/ollama.service.d
+
+# 2. Write the config to force Intel GPU usage
+lxc exec agent-zero-arc -- bash -c 'cat <<EOF > /etc/systemd/system/ollama.service.d/override.conf
+[Service]
+Environment="ZES_ENABLE_SYSMAN=1"
+Environment="OLLAMA_INTEL_GPU=1"
+Environment="ONEAPI_DEVICE_SELECTOR=level_zero:0"
+EOF'
+
+# 3. Reload and Restart Ollama
+lxc exec agent-zero-arc -- systemctl daemon-reload
+lxc exec agent-zero-arc -- systemctl restart ollama
+
+echo "Intel Arc GPU forced. Ready for next step."
 }
 
 AZ_InstallSoftware(){
@@ -414,8 +433,9 @@ LXD_menu(){
     echo -e "System: $(hostname) | Container: $CON_NAME"
     echo -e "Cache: $([ -d "$CACHE_BASE" ] && echo -e "${GREEN}ACTIVE${STD}" || echo -e "${RED}INACTIVE${STD}")"
     echo -e "40. AZ: Network Doctor        41. AZ: Init Container"
-    echo -e "42. AZ: Install Stack         43. AZ: Pull Models"
-    echo -e "44. AZ: LAUNCH UI             45. AZ: HARD RESET"
+    echo -e "42. AZ: Force Ollama to use the Arc A770 GPU "
+    echo -e "43. AZ: Install Stack         44. AZ: Pull Models"
+    echo -e "45. AZ: LAUNCH UI             46. AZ: HARD RESET"
     echo " "   
     echo -e "${CYAN}--- MANAGEMENT ---${STD}"
     echo -e "${CYAN}50. Root Login                  51. Ubuntu Login ${STD}"
@@ -457,10 +477,11 @@ LXD_options(){
         # Agent Zero Options
         40) AZ_NetworkDoctor ;;
         41) AZ_SetupContainer ;;
-        42) AZ_InstallSoftware ;;
-        43) AZ_PullModels ;;
-        44) AZ_LaunchUI ;;
-        45) AZ_Reset ;;
+        42) AZ_ForceArcEnabler ;;
+        43) AZ_InstallSoftware ;;
+        44) AZ_PullModels ;;
+        45) AZ_LaunchUI ;;
+        46) AZ_Reset ;;
         
         47) MakeWindowsVM ;;
         48) RequestVideo ;;
