@@ -369,8 +369,8 @@ EOF'
 # 3. Reload and Restart Ollama
 lxc exec agent-zero-arc -- systemctl daemon-reload
 lxc exec agent-zero-arc -- systemctl restart ollama
-
-echo "Intel Arc GPU forced. Ready for next step."
+pause 
+lastmessage="Intel Arc GPU forced. Ready for next step."
 }
 
 AZ_InstallSoftware(){
