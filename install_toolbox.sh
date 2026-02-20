@@ -352,10 +352,306 @@ InstallGo(){
 # -----------------------------------------------------------
 # 📦 PODMAN MENU (Simplified)
 # -----------------------------------------------------------
-Podman_Menu(){
-    # Just the entry point for brevity in this merged view
-    echo "Podman Menu Placeholder (Full logic retained)"
-    read -r -p "Press Enter to return..."
+Docker_Menu(){
+# --- New Selection Tool ---
+SelectContainer() {
+    # Generate list of container names
+    options=($(docker ps -a --format "{{.Names}}"))
+    
+    if [ ${#options[@]} -eq 0 ]; then
+        echo "No containers found."
+        return 1
+    fi
+
+    echo "--- Select a Container ---"
+    for i in "${!options[@]}"; do
+        printf "%d) %s\n" $((i+1)) "${options[$i]}"
+    done
+
+    read -rp "Enter selection number: " opt_num
+    
+    # Validate selection and update global ContainerName
+    if [[ "$opt_num" -gt 0 && "$opt_num" -le "${#options[@]}" ]]; then
+        ContainerName="${options[$((opt_num-1))]}"
+        echo "Targeting: $ContainerName"
+    else
+        echo "Invalid selection."
+        return 1
+    fi
+}
+
+ConfigureRailsContainer(){
+# Ensure chosen container is started
+    StartContainer
+    docker exec -it $ContainerName sh -c " apt update; apt upgrade -y; apt install -y git curl bundler libsqlite3-dev make g++ ruby-dev apt-utils yarn unixodbc unixodbc-dev bash-completion dialog nano;  gem install rails tzinfo-data dbi dbd-odbc ruby-odbc ruby-oci8 activerecord-odbc-adapter;"
+}
+
+UpdateUpgradeContainer(){
+# Ensure chosen container is started
+    StartContainer
+# Send commands to chosen container
+    docker exec -it $ContainerName sh -c " apt update; apt upgrade -y;  "
+}
+
+PushPullProject(){
+# tell this version of git some default behaviour
+    git config --global push.default simple
+    git config user.email "some@developer.com"
+    git config user.name "Docker_Menu-APP"
+
+# update the Projects folder
+    git pull
+    git add /rubydatahandler/projects/.
+    git commit -m 'Push & Pull Ruby Projects'
+    git push
+}
+
+# V ----------------------- Variables & Arrays-------------------
+RED='\033[0;41;30m'
+STD='\033[0;0;39m'
+DateTime=$(date)
+
+pause(){
+# Require user interaction to proceed
+  read -p "Press [Enter] key to continue..." fackEnterKey
+}
+
+# ------------ Data Capture -----------
+
+CaptureImageName(){
+# Display all existing container info
+    FullContList
+# capture existing image name   
+   read -rp "Enter an image name: " ImageName
+    if [ $ImageName="" ];
+    then
+# Complain about the lack of image name and stop
+    echo "Please select an image...."   
+    else
+# Display the selected image.
+    echo "Using:" $ImageName   
+    fi   
+}
+
+DefineContName(){
+# Capture and pass container name as name for new host
+    read -rp "Enter the Container Name: " ContainerName
+    ContName="--name $ContainerName"
+}
+
+NameContainer(){
+# Capture and validate the new desired Container Name
+    read -rp "Enter the Container Name: " ContainerName
+    if [ $ContainerName == "" ];
+    then
+# Complain about the lack of image name and stop
+    echo "Please enter a container name...."   
+    else
+# Display the selected image.
+    echo "You Entered: "$ContainerName   
+    fi   
+}  
+
+RenameContainer(){
+# Select container to change
+    SelectContainer
+    ImageName=$ContainerName
+
+# capture and validate the new name   
+   read -rp "Enter the new container name: " new_container
+    if [ "$new_container" == "" ];
+    then
+        echo "Please enter a new name...."   
+    else
+        echo "Replacing: $ImageName with: $new_container"
+        docker rename $ImageName $new_container
+    fi   
+}
+
+DefineOS(){
+    read -rp "Enter your desired Operating System: " opesys
+}
+
+DefineSW(){
+    read -rp "Enter your Software requirements: " reqsof
+}
+
+UserInContainer(){
+    read -rp "Enter the User Name: " LoginUser
+}
+
+# ------Construct-----
+
+BuildLocal(){
+    read -rp "Enter file location or leave blank for current location: " BuildFile
+    if [ $BuildFile="" ];
+    then docker-compose up --build -d
+    else cd $BuildFile docker-compose up --build -d
+    fi
+}
+
+StartContainer(){
+    docker start $ContainerName 
+}
+
+BasicCon(){
+    docker create --name $ContainerName 
+}
+
+DefinedBuild(){
+    docker create -t -i --name $ContainerName $opesys $reqsof
+}
+
+PullImage(){
+    echo "view images at: https://registry.docker.nat.bt.com/harbor/projects"
+    read -rp "Enter the desired Image (eg. ubuntu-focal:latest) or leave blank for 20.04: " TheImage
+    if [[ $TheImage == "" ]]
+    then TheImage="ubuntu-focal:latest"
+    fi
+    docker pull $TheImage
+}
+
+SaveTar(){
+    mkdir -v /5p4c3/Images/
+    docker save -o /5p4c3/Images/$ContainerName.tar $ImageName
+    ls -sh /5p4c3/Images/$ContainerName.tar
+}
+
+LoadTar(){
+    docker load -i /5p4c3/Images/$ContainerName.tar
+}
+
+DeleteContainer(){
+    docker rm $ContainerName
+}
+
+RunCon(){
+    docker start -a -i $ContainerName
+}
+
+StopCon(){
+    docker stop $ContainerName
+}
+
+FullContList(){
+   docker ps -a 
+}
+
+ContList(){
+    docker inspect -f '{{.Name}} - {{.State.Running}} - {{.NetworkSettings.IPAddress }}' $(docker ps -aq)
+}
+
+# --------------------- Container Interaction ---------------------
+
+Acommand(){
+    read -rp "Enter the desired command or leave blank to quit: " DockerCommand
+    if [[ $DockerCommand == "" ]]
+    then
+        echo "No command recieved, /bin/bash"
+        DockerCommand="/bin/bash"
+    else
+        echo $DockerCommand
+    fi
+}
+
+IssueCommand(){
+    docker exec -it $ContainerName sh -c "$DockerCommand"
+    Acommand
+}
+
+ContainerLogin(){
+    docker container attach $ContainerName
+}
+
+UserLogin(){
+    docker exec -it --user $LoginUser $ContainerName /bin/bash
+}
+
+BasicDockerCon(){
+    docker create -t -i $ContName ubuntu
+}
+
+CopyFolder2Host(){
+    read -rp "Define location in container to copy from: " CopyFrom
+    read -rp "Define location on host to copy to: " CopyTo
+    docker cp $ContainerName:$CopyFrom $CopyTo
+}
+
+# ----------------- Menu Logic -----------------
+
+DockerMenu(){  
+    docker_menu(){
+    echo ""
+    echo " Docker MENU"
+    echo "------------------------"
+    echo "1.  Setup Dockers Requirements via Snap"
+    echo "2.  Show more container info. "
+    echo "4.  Define a new Container (Manual Name)"
+    echo "5.  Start Container & connect (Select List)"
+    echo "6.  Stop Container (Select List)"
+    echo "7.  Login to a running Container (Select List)"
+    echo "8.  Build local image"
+    echo "9.  Start an existing container (Select List)"
+    echo "20. Issue a command to a container"
+    echo "27. Select, update, upgrade and install software"
+    echo "30. Pull a Docker image"
+    echo "34. Add RoR to an existing container"
+    echo "36. Git Push/Pull project Changes"
+    echo "40. Save a container image"
+    echo "41. Load a container image"
+    echo "42. Rename a container (Select List)"
+    echo "43. Copy files/folder to the host"
+    echo "50. Create Docker Ubuntu Container"
+    echo "53. Create a RoR container"
+    echo "91. Delete a Container (Select List)"  
+    echo "99. Exit "
+    echo "------------------------"
+    ContList
+}
+
+docker_options(){
+    local choice
+    read -p "Enter choice [ 1 - 99] " choice
+    case $choice in
+        1)  sudo apt install docker.io docker-compose && sudo usermod -aG docker $USER && su - $USER ;;
+        2)  FullContList ;;   
+        4)  NameContainer && DefineOS && DefineSW && DefinedBuild && RunCon ;;
+        5)  SelectContainer && RunCon ;;
+        6)  SelectContainer && StopCon ;;
+        7)  SelectContainer && ContainerLogin ;;
+        8)  BuildLocal ;;
+        9)  SelectContainer && StartContainer ;;
+        20) SelectContainer && StartContainer && Acommand && IssueCommand ;;
+        27) SelectContainer && UpdateUpgradeContainer ;;
+        30) PullImage ;;
+        34) SelectContainer && ConfigureRailsContainer ;;
+        36) PushPullProject ;;
+        40) SelectContainer && CaptureImageName && SaveTar ;;
+        41) NameContainer && LoadTar ;;
+        42) RenameContainer ;;
+        43) SelectContainer && CopyFolder2Host ;;
+        50) DefineContName && BasicDockerCon ;;
+        53) NameContainer && BasicDockerCon && ConfigureRailsContainer ;;
+        91) SelectContainer && StopCon && DeleteContainer ;;
+        99) clear && echo "Goodbye $USER" && exit ;;
+        *) echo -e "${RED} sending $choice to bin/bash.....${STD}" && echo -e $choice | /bin/bash
+    esac
+}
+
+while true
+do
+    docker_menu
+    docker_options
+done
+}
+
+# Startup logic
+if [ -z "$1" ]
+then 
+    DockerMenu
+else 
+    $1
+fi
 }
 
 # -----------------------------------------------------------
@@ -395,7 +691,7 @@ ShowMenu(){
         22) Graphics_Menu ;; 
         23) $SAI testdisk; pause ;;
         30) Ollama_Setup ;;
-        31) Podman_Menu ;;
+        31) Docker_Menu ;;
         32) $SAI docker.io; pause ;;
         33) Android_Menu ;;
         34) InstallGo ;;

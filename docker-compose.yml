@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      OLLAMA_INTEL_GPU: "1"
+    ports:
+      - "11434:11434"
+
+  agent-zero:
+    image: frdel/agent-zero:latest
+    container_name: agent-zero
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    environment:
+      CHAT_MODEL_PROVIDER: ollama
+      CHAT_MODEL_NAME: llama3
+      EMBED_MODEL_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "8080:8080"
+
+  intel-oneapi:
+    image: intel/oneapi-basekit:latest
+    container_name: intel-oneapi
+    devices:
+      - /dev/dri:/dev/dri
+    command: ["sleep", "infinity"]
+
+  dashboard:
+    build: ./dashboard
+    container_name: az-dashboard
+    ports:
+      - "5050:5050"
+    devices:
+      - /dev/dri:/dev/dri
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
