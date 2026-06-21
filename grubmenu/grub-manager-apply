@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# grub-manager-apply — privileged helper, called via pkexec
+# Usage: grub-manager-apply <temp_config_path>
+set -euo pipefail
+
+TMPFILE="${1:-}"
+TARGET=/etc/default/grub
+
+[[ -z "$TMPFILE" ]] && { echo "No temp file provided"; exit 1; }
+[[ ! -f "$TMPFILE" ]] && { echo "Temp file not found: $TMPFILE"; exit 1; }
+
+# Validate it looks like a grub config (basic sanity)
+grep -qE '^(GRUB_|#)' "$TMPFILE" || { echo "File doesn't look like a grub config"; exit 1; }
+
+# Backup
+cp "$TARGET" "${TARGET}.bak"
+
+# Deploy
+cp "$TMPFILE" "$TARGET"
+chmod 644 "$TARGET"
+rm -f "$TMPFILE"
+
+# Apply
+update-grub 2>&1

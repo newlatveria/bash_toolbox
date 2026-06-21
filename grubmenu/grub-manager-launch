@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# grub-manager-launch — wrapper that handles env and logs errors
+LOG=/tmp/grub-manager.log
+SCRIPT=/opt/grub-manager/grub-manager.py
+
+exec > "$LOG" 2>&1
+
+echo "=== grub-manager launch $(date) ==="
+echo "USER=$USER DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+echo "XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}"
+
+# Find a working python3 with tkinter
+PY=""
+for candidate in python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        if "$candidate" -c "import tkinter" 2>/dev/null; then
+            PY="$candidate"
+            echo "Using: $PY ($(which $PY))"
+            break
+        else
+            echo "Skipping $candidate: no tkinter"
+        fi
+    fi
+done
+
+if [[ -z "$PY" ]]; then
+    MSG="python3-tk is not installed.\n\nFix: sudo apt install python3-tk"
+    echo "ERROR: $MSG"
+    if command -v zenity &>/dev/null; then
+        zenity --error --text="$MSG" --title="Boot Options" 2>/dev/null
+    elif command -v xmessage &>/dev/null; then
+        xmessage -center "$MSG"
+    fi
+    exit 1
+fi
+
+# Wayland: ensure XDG_RUNTIME_DIR is set
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+
+# X11 fallback if DISPLAY not set but X is available
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    for d in :0 :1; do
+        if xdpyinfo -display "$d" &>/dev/null 2>&1; then
+            export DISPLAY="$d"
+            echo "Set DISPLAY=$DISPLAY"
+            break
+        fi
+    done
+fi
+
+echo "Running: $PY $SCRIPT"
+"$PY" "$SCRIPT"
+EXIT=$?
+
+if [[ $EXIT -ne 0 ]]; then
+    echo "Exit code: $EXIT"
+    ERR=$(tail -20 "$LOG")
+    if command -v zenity &>/dev/null; then
+        zenity --error \
+            --title="Boot Options – Error" \
+            --text="Boot Options failed to start.\n\nSee $LOG for details.\n\n$ERR" \
+            2>/dev/null || true
+    fi
+fi
+
+exit $EXIT
