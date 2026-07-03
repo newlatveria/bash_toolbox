@@ -4,18 +4,19 @@ set -euo pipefail
 
 [[ $EUID -ne 0 ]] && { echo "Run as root: sudo bash install.sh"; exit 1; }
 
-# Ensure python3-tk for the running python3 version
-PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-echo "Python $PY_VER detected"
-if ! python3 -c "import tkinter" 2>/dev/null; then
-    echo "Installing python3.${PY_VER##*.}-tk / python3-tk..."
+# Dep check
+python3 -c "import tkinter" 2>/dev/null || {
+    PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
     apt-get install -y "python3.${PY_VER##*.}-tk" 2>/dev/null || apt-get install -y python3-tk
-fi
+}
 
-# Deploy app files
+# Make grub.cfg world-readable so the GUI can list boot entries without root
+chmod 644 /boot/grub/grub.cfg 2>/dev/null && echo "  grub.cfg made world-readable" || true
+
+# Main app
 mkdir -p /opt/grub-manager
-cp grub-manager.py      /opt/grub-manager/
-cp grub-manager-launch  /opt/grub-manager/
+cp grub-manager.py     /opt/grub-manager/
+cp grub-manager-launch /opt/grub-manager/
 chmod 755 /opt/grub-manager/grub-manager.py
 chmod 755 /opt/grub-manager/grub-manager-launch
 
@@ -32,7 +33,7 @@ cat > /usr/share/polkit-1/actions/io.github.grub-manager.policy << 'POLKIT'
   <action id="io.github.grub-manager.apply">
     <description>Update GRUB boot configuration</description>
     <message>Your password is required to change boot settings</message>
-    <icon_name>preferences-system</icon_name>
+    <icon_name>system-reboot</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -48,6 +49,7 @@ POLKIT
 cp grub-manager.desktop /usr/share/applications/
 chmod 644 /usr/share/applications/grub-manager.desktop
 
+echo ""
 echo "Installed. Find 'Boot Options' in your apps menu."
 echo "Log file (if issues): /tmp/grub-manager.log"
 echo "To remove: sudo bash uninstall.sh"
