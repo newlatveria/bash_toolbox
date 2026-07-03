@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Boot Options
+GenericName=GRUB Boot Manager
+Comment=Configure which operating system starts and how the boot menu behaves
+Exec=/opt/grub-manager/grub-manager-launch
+Icon=system-reboot
+Terminal=false
+Categories=System;Settings;
+Keywords=boot;grub;startup;os;default;bootloader;
+StartupNotify=true
